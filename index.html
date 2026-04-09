@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PipeCost Pro - Manufacturing Calculator</title>
+    
+    <!-- Mobile App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PipeCost Pro">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e293b">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+            height: 100%;
+        }
+        .input-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #4a5568;
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .input-field {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #edf2f7;
+            border-radius: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            outline: none;
+            background-color: #f8fafc;
+            transition: all 0.2s;
+        }
+        .input-field:focus {
+            border-color: #3182ce;
+            background-color: white;
+        }
+        .readonly-field {
+            background-color: #f8fafc;
+            color: #2d3748;
+            cursor: pointer;
+        }
+        .result-box {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            margin-top: auto;
+        }
+        .section-title {
+            font-size: 1rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Mobile Optimization Fixes */
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+            }
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .button-group {
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 5px;
+                display: flex;
+                flex-wrap: nowrap;
+            }
+            .button-group button {
+                flex: 0 0 auto;
+                font-size: 11px;
+                padding: 8px 12px;
+            }
+            .card {
+                padding: 15px;
+            }
+            .input-field {
+                font-size: 1.1rem;
+                padding: 0.75rem;
+            }
+        }
+        
+        .step-num {
+            width: 1.5rem;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            color: white;
+        }
+
+        /* Print-only template styles (apply for both screen capture & print) */
+        .print-only {
+            display: none;
+            font-family: 'Inter', Arial, sans-serif;
+            font-size: 11px;
+            color: #1a202c;
+            background: #fff;
+        }
+        .print-only table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .print-only th,
+        .print-only td {
+            border: 1px solid #999;
+            padding: 3px 8px;
+            text-align: left;
+            font-size: 11px;
+        }
+        .print-only th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            width: 50%;
+        }
+        .print-only td {
+            width: 50%;
+        }
+        .print-only .print-header {
+            text-align: center;
+            margin-bottom: 6px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 4px;
+        }
+        .print-only .section-header {
+            background-color: #e2e8f0;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-align: center;
+            font-size: 12px;
+        }
+        .print-only .highlight-cell th,
+        .print-only .highlight-cell td {
+            font-weight: bold;
+            background-color: #f8fafc;
+        }
+        .print-only .total-row th,
+        .print-only .total-row td {
+            background-color: #f1f5f9;
+            font-weight: bold;
+        }
+        .print-only .grand-row th,
+        .print-only .grand-row td {
+            background-color: #e2e8f0;
+            font-weight: 900;
+            font-size: 13px;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 1cm;
+            }
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .print-only {
+                display: block !important;
+            }
+            #main-dashboard {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 min-h-screen">
+    <div class="max-w-[98%] mx-auto" id="main-dashboard">
+        
+        <div class="flex justify-between items-center mb-6 header-container">
+            <div class="flex items-center gap-4">
+                <div class="bg-gradient-to-br from-slate-700 to-slate-900 p-2 rounded-2xl shadow-xl border border-slate-500/30 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 100 100" fill="none" class="w-[48px] h-[48px] sm:w-[56px] sm:h-[56px]">
+                        <!-- Hexagon/Cube Outline -->
+                        <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round" fill="#1e293b"/>
+                        
+                        <!-- Stylized Pipe Inside -->
+                        <ellipse cx="45" cy="45" rx="15" ry="25" stroke="#cbd5e1" stroke-width="3" fill="#334155" transform="rotate(-15, 45, 45)"/>
+                        <path d="M55 25 L75 35 L75 65 L55 55" stroke="#cbd5e1" stroke-width="3" fill="#334155" opacity="0.6"/>
+                        
+                        <!-- Calculator Icon on Top -->
+                        <rect x="42" y="42" width="35" height="40" rx="4" fill="#f8fafc" stroke="#1e293b" stroke-width="2"/>
+                        <path d="M48 50 H71 M48 58 H71 M48 66 H55 M64 66 H71" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="50" cy="74" r="2" fill="#334155"/>
+                        <circle cx="58" cy="74" r="2" fill="#334155"/>
+                        <circle cx="66" cy="74" r="2" fill="#334155"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-black text-gray-800 uppercase tracking-tighter leading-none">PipeCost <span class="text-slate-700">Pro</span></h1>
+                    <p class="text-[10px] sm:text-[12px] font-bold text-gray-500 tracking-widest uppercase mt-2">Simplified Calculations. Stronger Decisions.</p>
+                </div>
+            </div>
+            <div class="flex gap-2 no-print button-group">
+                 <button id="share-btn" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                    SHARE
+                </button>
+                 <button onclick="window.print()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    PRINT / PDF
+                </button>
+                <button onclick="window.location.reload()" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                     REFRESH
+                 </button>
+            </div>
+        </div>
+        
+        <!-- Dashboard Grid Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- 1. PRODUCTION DETAILS -->
+            <div class="card p-5">
+                <h1 class="section-title text-blue-600">
+                    <span class="step-num bg-blue-600">1</span>
+                    PRODUCTION DETAILS
+                </h1>
+                <div class="space-y-3">
+                    <div>
+                        <label class="input-label">Pipe Size</label>
+                        <select id="pipe-size" class="input-field">
+                            <option value="300mm">300mm</option>
+                            <option value="350mm">350mm</option>
+                            <option value="400mm">400mm</option>
+                            <option value="450mm" selected>450mm</option>
+                            <option value="500mm">500mm</option>
+                            <option value="600mm">600mm</option>
+                            <option value="700mm">700mm</option>
+                            <option value="800mm">800mm</option>
+                            <option value="900mm">900mm</option>
+                            <option value="1000mm">1000mm</option>
+                            <option value="1200mm">1200mm</option>
+                            <option value="1400mm">1400mm</option>
+                            <option value="1600mm">1600mm</option>
+                            <option value="1800mm">1800mm</option>
+                            <option value="2000mm">2000mm</option>
+                            <option value="2200mm">2200mm</option>
+                            <option value="2400mm">2400mm</option>
+                            <option value="2600mm">2600mm</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="input-label">Class</label>
+                            <select id="pipe-class" class="input-field">
+                                <option value="NP3">NP3</option>
+                                <option value="NP4">NP4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="input-label">Type</label>
+                            <select id="pipe-type" class="input-field">
+                                <option value="S&S">S&S</option>
+                                <option value="R&R">R&R</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. CONCRETE SECTION -->
+            <div class="card p-5 border-t-8 border-green-500 flex flex-col">
+                <h2 class="section-title text-green-600">
+                    <span class="step-num bg-green-500">2</span>
+                    CONCRETE SECTION
+                </h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="input-label">Estimated Volume</label>
+                        <div class="relative">
+                            <input type="text" id="concrete-value" class="input-field text-center" value="0.000">
+                            <span class="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m³</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label">Cement Qty (Kg)</label>
+                        <input type="number" id="cement-qty" class="input-field" value="425">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="input-label">Cement Rate (₹)</label>
+                        <input type="number" id="cement-rate" class="input-field" value="7">
+                    </div>
+                    <div class="flex flex-col justify-end">
+                        <div class="bg-green-600 p-2 rounded text-white text-center shadow-md">
+                            <p class="text-[10px] font-bold uppercase opacity-80">Cement Cost</p>
+                            <p class="text-sm font-black">₹ <span id="cement-cost-display">0.00</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. STEEL SECTION -->
+            <div class="card p-5 border-t-8 border-blue-500 flex flex-col">
+                <h2 class="section-title text-blue-600">
+                    <span class="step-num bg-blue-600">3</span>
+                    STEEL SECTION
+                </h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="input-label">Weight (Kg)</label>
+                        <input type="text" id="steel-weight" class="input-field text-center" value="0.0">
+                    </div>
+                    <div>
+                        <label class="input-label">Rate (₹)</label>
+                        <input type="number" id="steel-rate" class="input-field" value="62">
+                    </div>
+                </div>
+                <div class="mt-auto">
+                    <div class="bg-blue-600 p-2 rounded text-white text-center shadow-md">
+                        <p class="text-[10px] font-bold uppercase opacity-80">Steel Cost</p>
+                        <p class="text-sm font-black">₹ <span id="steel-cost-display">0.00</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. SAND & AGGREGATE SECTION -->
+            <div class="card p-5 border-t-8 border-yellow-500 flex flex-col">
+                <h2 class="section-title text-yellow-600">
+                    <span class="step-num bg-yellow-500">4</span>
+                    SAND & AGGREGATE
+                </h2>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="input-label">Weight (Kg)</label>
+                        <input type="text" id="sand-weight" class="input-field text-center" value="0.0">
+                    </div>
+                    <div>
+                        <label class="input-label">Rate (₹)</label>
+                        <input type="number" id="sand-rate" class="input-field" value="0.90" step="0.01">
+                    </div>
+                </div>
+                <div class="mt-auto">
+                    <div class="bg-yellow-500 p-2 rounded text-white text-center shadow-md">
+                        <p class="text-[10px] font-bold uppercase opacity-80">Sand Cost</p>
+                        <p class="text-sm font-black">₹ <span id="sand-cost-display">0.00</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. OTHER COSTS SECTION -->
+            <div class="card p-5 border-t-8 border-red-500 flex flex-col">
+                <h2 class="section-title text-red-600">
+                    <span class="step-num bg-red-600">5</span>
+                    Other Costs
+                </h2>
+                <div class="space-y-3 mb-4">
+                    <div>
+                        <label class="input-label">Labour Cost (Auto)</label>
+                        <input type="text" id="labour-cost" class="input-field text-center" value="0">
+                    </div>
+                    <div>
+                        <label class="input-label">Power Cost</label>
+                        <input type="number" id="power-cost" class="input-field" placeholder="Enter Power Cost">
+                    </div>
+                    <div>
+                        <label class="input-label">Transport Charges</label>
+                        <input type="number" id="transport-cost" class="input-field" placeholder="Enter Transport Charges">
+                    </div>
+                </div>
+                <div class="mt-auto">
+                    <div class="bg-red-600 p-2 rounded text-white text-center shadow-md">
+                        <p class="text-[10px] font-bold uppercase opacity-80">Other Total</p>
+                        <p class="text-sm font-black">₹ <span id="other-cost-display">0.00</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. FINAL COST SECTION -->
+            <div class="card p-5 border-t-8 border-indigo-600 flex flex-col">
+                <h2 class="section-title text-indigo-600">
+                    <span class="step-num bg-indigo-600">6</span>
+                    Final Cost
+                </h2>
+                <div class="space-y-4 mb-4">
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <label class="input-label">Subtotal (All Costs)</label>
+                        <div class="text-xl font-bold text-gray-800">₹ <span id="subtotal-display">0.00</span></div>
+                    </div>
+
+                    <div>
+                        <label class="input-label">Profit</label>
+                        <input type="number" id="profit" class="input-field" placeholder="Enter Profit">
+                    </div>
+
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-sm font-bold text-gray-600 uppercase">GST (18%)</span>
+                        <span class="text-lg font-bold text-indigo-600">₹ <span id="gst-display">0.00</span></span>
+                    </div>
+
+                    <div class="bg-indigo-600 p-4 rounded-xl text-center shadow-xl border-2 border-indigo-300">
+                        <p class="text-xs font-black text-indigo-100 uppercase mb-1 tracking-widest">Grand Final Total</p>
+                        <p class="text-3xl font-black text-white">₹ <span id="final-total-display">0.00</span></p>
+                    </div>
+
+                    <div class="bg-green-600 p-4 rounded-xl text-center shadow-xl border-2 border-green-300 mt-2">
+                        <p class="text-xs font-black text-green-100 uppercase mb-1 tracking-widest">Cost Per Meter (₹)</p>
+                        <p class="text-3xl font-black text-white">₹ <span id="cost-per-meter-display">0.00</span></p>
+                    </div>
+                </div>
+                <p class="text-[10px] text-gray-400 text-center italic mt-auto">Includes Cement, Steel, Sand, Labour, Power & Transport</p>
+            </div>
+
+            <!-- 7. INQUIRY METER SECTION -->
+             <div class="card p-5 border-t-8 border-purple-600 flex flex-col col-span-1 md:col-span-2 lg:col-span-1">
+                <h2 class="section-title text-purple-700">
+                    <span class="step-num bg-purple-600">7</span>
+                    Inquiry Meter
+                </h2>
+                <div class="space-y-4 mb-4">
+                    <div>
+                        <label class="input-label">Inquiry Value (Meter)</label>
+                        <input type="number" id="inquiry-meter" class="input-field text-center" placeholder="Example: 1000">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-purple-50 p-2 rounded border border-purple-100 text-center">
+                            <p class="text-[10px] font-bold uppercase text-purple-600">No. of Pipes</p>
+                            <p class="text-lg font-black text-purple-800"><span id="pipes-needed">0</span></p>
+                        </div>
+                        <div class="bg-purple-50 p-2 rounded border border-purple-100 text-center">
+                            <p class="text-[10px] font-bold uppercase text-purple-600">Pallet Cap.</p>
+                            <p class="text-lg font-black text-purple-800"><span id="current-pallet-cap">0</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-purple-600 p-4 rounded-xl text-center shadow-lg border-2 border-purple-300">
+                        <p class="text-xs font-black text-purple-100 uppercase mb-1 tracking-widest">No. of Days Required</p>
+                        <p class="text-3xl font-black text-white"><span id="days-needed">0</span> Days</p>
+                    </div>
+
+                    <div id="calc-steps" class="text-[10px] text-gray-500 font-medium bg-gray-50 p-2 rounded border border-dashed border-gray-300 hidden">
+                        <p>Calculation: <span id="step1-txt"></span> | <span id="step2-txt"></span></p>
+                    </div>
+                </div>
+            </div>
+
+         </div>
+
+        <!-- Bottom Action Buttons (mobile only) -->
+        <div class="flex gap-2 mt-4 justify-center no-print button-group md:hidden">
+            <button id="share-btn-bottom" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                SHARE
+            </button>
+            <button onclick="window.print()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                PRINT / PDF
+            </button>
+            <button onclick="window.location.reload()" class="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                REFRESH
+            </button>
+        </div>
+
+     </div>
+
+    <!-- PRINT TEMPLATE -->
+    <div class="print-only">
+        <div class="print-header">
+            <h1 style="font-size: 18px; font-weight: 900; color: #1e293b; margin: 0;">PIPECOST PRO</h1>
+            <p style="font-size: 9px; font-weight: bold; color: #475569; margin: 2px 0 0; letter-spacing: 1px;">SIMPLIFIED CALCULATIONS. STRONGER DECISIONS.</p>
+            <p style="font-size: 11px; margin: 4px 0 0; border-top: 1px solid #ccc; padding-top: 4px;">Report Generated on: <span id="print-date"></span></p>
+        </div>
+
+        <!-- TABLE 1: SECTIONS 1-6 (2-column: Label | Value) -->
+        <table>
+            <tr><th colspan="2" class="section-header">PRODUCTION & COST ANALYSIS</th></tr>
+            <tr><th>Pipe Size</th><td id="p-size"></td></tr>
+            <tr><th>Pipe Class & Type</th><td id="p-class-type"></td></tr>
+            <tr><th>Estimated Volume</th><td id="p-vol"></td></tr>
+            <tr><th>Cement Qty</th><td id="p-cement-qty"></td></tr>
+            <tr><th>Cement Rate</th><td id="p-cement-rate"></td></tr>
+            <tr class="highlight-cell"><th>Cement Cost</th><td id="p-cement-cost"></td></tr>
+            <tr><th>Steel Weight</th><td id="p-steel-weight"></td></tr>
+            <tr><th>Steel Rate</th><td id="p-steel-rate"></td></tr>
+            <tr class="highlight-cell"><th>Steel Cost</th><td id="p-steel-cost"></td></tr>
+            <tr><th>Sand Weight</th><td id="p-sand-weight"></td></tr>
+            <tr><th>Sand Rate</th><td id="p-sand-rate"></td></tr>
+            <tr class="highlight-cell"><th>Sand Cost</th><td id="p-sand-cost"></td></tr>
+            <tr><th>Labour Cost</th><td id="p-labour-cost"></td></tr>
+            <tr><th>Power Cost</th><td id="p-power-cost"></td></tr>
+            <tr><th>Transport Charges</th><td id="p-transport-cost"></td></tr>
+            <tr class="total-row"><th>Other Costs Total</th><td id="p-other-total"></td></tr>
+            <tr class="total-row"><th>Subtotal (All Costs)</th><td id="p-subtotal"></td></tr>
+            <tr><th>Profit</th><td id="p-profit"></td></tr>
+            <tr class="total-row"><th>GST (18%)</th><td id="p-gst"></td></tr>
+            <tr class="grand-row"><th>GRAND FINAL TOTAL</th><td id="p-grand-total"></td></tr>
+            <tr class="grand-row"><th>COST PER METER</th><td id="p-cost-per-meter"></td></tr>
+        </table>
+
+        <!-- TABLE 2: SECTION 7 (2-column: Label | Value) -->
+        <table style="margin-top: 10px;">
+            <tr><th colspan="2" class="section-header">INQUIRY METER ANALYSIS</th></tr>
+            <tr><th>Total Inquiry (Meters)</th><td id="p-inquiry-val"></td></tr>
+            <tr><th>Pallet Capacity</th><td id="p-pallet-cap"></td></tr>
+            <tr><th>No. of Pipes Required</th><td id="p-pipes-needed"></td></tr>
+            <tr class="grand-row"><th>No. of Days Required</th><td id="p-days-needed"></td></tr>
+            <tr><td colspan="2" style="text-align: center; font-style: italic; color: #666; font-size: 9px; padding: 3px;">Calculation: <span id="p-step1"></span> | <span id="p-step2"></span></td></tr>
+        </table>
+    </div>
+
+    <script>
+        // Data Tables
+        const pipeDataTable = {
+            "S&S": {
+                "300mm": { vol: 0.173, steel: { NP3: 6.2, NP4: 6.3 }, sandWeight: 415, labour: 325, dailyNos: 28 },
+                "350mm": { vol: 0.201, steel: { NP3: 6.5, NP4: 6.6 }, sandWeight: 483, labour: 325, dailyNos: 45 },
+                "400mm": { vol: 0.246, steel: { NP3: 6.7, NP4: 7.6 }, sandWeight: 590, labour: 325, dailyNos: 50 },
+                "450mm": { vol: 0.303, steel: { NP3: 7.5, NP4: 11.1 }, sandWeight: 728, labour: 325, dailyNos: 50 },
+                "500mm": { vol: 0.352, steel: { NP3: 7.8, NP4: 16.9 }, sandWeight: 845, labour: 350, dailyNos: 50 },
+                "600mm": { vol: 0.437, steel: { NP3: 9.5, NP4: 29.2 }, sandWeight: 1050, labour: 350, dailyNos: 46 },
+                "700mm": { vol: 0.575, steel: { NP3: 17.3, NP4: 43.6 }, sandWeight: 1381, labour: 400, dailyNos: 40 },
+                "800mm": { vol: 0.726, steel: { NP3: 26.7, NP4: 55.1 }, sandWeight: 1745, labour: 400, dailyNos: 40 },
+                "900mm": { vol: 0.853, steel: { NP3: 39.6, NP4: 66.9 }, sandWeight: 2050, labour: 500, dailyNos: 20 },
+                "1000mm": { vol: 1.072, steel: { NP3: 50.0, NP4: 87.9 }, sandWeight: 2575, labour: 500, dailyNos: 20 },
+                "1200mm": { vol: 1.480, steel: { NP3: 66.1, NP4: 127.2 }, sandWeight: 3555, labour: 650, dailyNos: 15 },
+                "1400mm": { vol: 1.898, steel: { NP3: 83.9, NP4: 151.9 }, sandWeight: 4560, labour: 800, dailyNos: 15 },
+                "1600mm": { vol: 2.489, steel: { NP3: 135.5, NP4: 177.9 }, sandWeight: 5980, labour: 900, dailyNos: 10 },
+                "1800mm": { vol: 3.046, steel: { NP3: 183.9, NP4: 232.3 }, sandWeight: 7320, labour: 1000, dailyNos: 20 },
+                "2000mm": { vol: 3.271, steel: { NP3: 231.2, NP4: 296.0 }, sandWeight: 7860, labour: 1200, dailyNos: 10 },
+                "2200mm": { vol: 3.978, steel: { NP3: 287.2, NP4: 424.6 }, sandWeight: 9560, labour: 1200, dailyNos: 8 },
+                "2400mm": { vol: 4.642, steel: { NP3: 370.5, NP4: 490.3 }, sandWeight: 11155, labour: 1500, dailyNos: 8 },
+                "2600mm": { vol: 5.600, steel: { NP3: 476.6, NP4: 557.8 }, sandWeight: 13457, labour: 1500, dailyNos: 5 }
+            },
+            "R&R": {
+                "300mm": { vol: 0.14, steel: { NP3: 5.8, NP4: 5.8 }, sandWeight: 415, labour: 325, dailyNos: 28 },
+                "350mm": { vol: 0.17, steel: { NP3: 5.9, NP4: 6.0 }, sandWeight: 483, labour: 325, dailyNos: 45 },
+                "400mm": { vol: 0.22, steel: { NP3: 6.0, NP4: 6.9 }, sandWeight: 590, labour: 325, dailyNos: 50 },
+                "450mm": { vol: 0.26, steel: { NP3: 6.7, NP4: 10.4 }, sandWeight: 728, labour: 325, dailyNos: 50 },
+                "500mm": { vol: 0.31, steel: { NP3: 7.0, NP4: 15.9 }, sandWeight: 845, labour: 350, dailyNos: 50 },
+                "600mm": { vol: 0.40, steel: { NP3: 8.5, NP4: 27.1 }, sandWeight: 1050, labour: 350, dailyNos: 46 },
+                "700mm": { vol: 0.52, steel: { NP3: 15.1, NP4: 40.6 }, sandWeight: 1381, labour: 400, dailyNos: 40 },
+                "800mm": { vol: 0.67, steel: { NP3: 23.8, NP4: 50.4 }, sandWeight: 1745, labour: 400, dailyNos: 40 },
+                "900mm": { vol: 0.79, steel: { NP3: 35.5, NP4: 60.9 }, sandWeight: 2050, labour: 500, dailyNos: 20 },
+                "1000mm": { vol: 1.01, steel: { NP3: 45.9, NP4: 81.9 }, sandWeight: 2575, labour: 500, dailyNos: 20 },
+                "1200mm": { vol: 1.30, steel: { NP3: 62.0, NP4: 121.2 }, sandWeight: 3555, labour: 650, dailyNos: 15 },
+                "1400mm": { vol: 1.69, steel: { NP3: 83.9, NP4: 156.9 }, sandWeight: 4560, labour: 800, dailyNos: 15 },
+                "1600mm": { vol: 2.29, steel: { NP3: 135.5, NP4: 223.2 }, sandWeight: 5980, labour: 900, dailyNos: 10 },
+                "1800mm": { vol: 2.80, steel: { NP3: 183.9, NP4: 251.6 }, sandWeight: 7320, labour: 1000, dailyNos: 20 },
+                "2000mm": { vol: 3.27, steel: { NP3: 231.2, NP4: 307.2 }, sandWeight: 7860, labour: 1200, dailyNos: 10 },
+                "2200mm": { vol: 3.97, steel: { NP3: 287.2, NP4: 424.6 }, sandWeight: 9560, labour: 1200, dailyNos: 8 },
+                "2400mm": { vol: 4.64, steel: { NP3: 370.5, NP4: 490.3 }, sandWeight: 11155, labour: 1500, dailyNos: 8 },
+                "2600mm": { vol: 5.35, steel: { NP3: 476.6, NP4: 557.8 }, sandWeight: 13457, labour: 1500, dailyNos: 5 }
+            }
+        };
+
+        // DOM Elements
+        const pipeSize = document.getElementById('pipe-size');
+        const pipeClass = document.getElementById('pipe-class');
+        const pipeType = document.getElementById('pipe-type');
+        
+        const concreteVal = document.getElementById('concrete-value');
+        const cementQty = document.getElementById('cement-qty');
+        const cementRate = document.getElementById('cement-rate');
+        const cementCostDisplay = document.getElementById('cement-cost-display');
+
+        const steelWeight = document.getElementById('steel-weight');
+        const steelRate = document.getElementById('steel-rate');
+        const steelCostDisplay = document.getElementById('steel-cost-display');
+
+        const sandWeight = document.getElementById('sand-weight');
+        const sandRate = document.getElementById('sand-rate');
+        const sandCostDisplay = document.getElementById('sand-cost-display');
+
+        const labourCostInput = document.getElementById('labour-cost');
+        const powerCostInput = document.getElementById('power-cost');
+        const transportCostInput = document.getElementById('transport-cost');
+        const otherCostDisplay = document.getElementById('other-cost-display');
+
+        const subtotalDisplay = document.getElementById('subtotal-display');
+        const profitInput = document.getElementById('profit');
+        const gstDisplay = document.getElementById('gst-display');
+        const finalTotalDisplay = document.getElementById('final-total-display');
+        const costPerMeterDisplay = document.getElementById('cost-per-meter-display');
+
+        const inquiryMeter = document.getElementById('inquiry-meter');
+        const pipesNeeded = document.getElementById('pipes-needed');
+        const currentPalletCap = document.getElementById('current-pallet-cap');
+        const daysNeeded = document.getElementById('days-needed');
+        const calcSteps = document.getElementById('calc-steps');
+        const step1Txt = document.getElementById('step1-txt');
+        const step2Txt = document.getElementById('step2-txt');
+
+        const shareBtn = document.getElementById('share-btn');
+        const shareBtnBottom = document.getElementById('share-btn-bottom');
+
+        let currentDailyNos = 0; // To store daily capacity from data table
+
+        function calculate(event) {
+            const size = pipeSize.value;
+            const pClass = pipeClass.value;
+            const type = pipeType.value;
+
+            // Update defaults only if Size, Class, or Type changed
+            if (event && (event.target === pipeSize || event.target === pipeClass || event.target === pipeType)) {
+                let data = pipeDataTable[type][size];
+                if (data) {
+                    concreteVal.value = data.vol.toFixed(3);
+                    steelWeight.value = data.steel[pClass].toFixed(1);
+                    sandWeight.value = data.sandWeight.toFixed(0);
+                    labourCostInput.value = data.labour || 0;
+                    currentDailyNos = data.dailyNos || 0;
+                }
+            }
+
+            // Always calculate using current input values
+            const currentVol = parseFloat(concreteVal.value) || 0;
+            const currentSteelWeight = parseFloat(steelWeight.value) || 0;
+            const currentSandWeight = parseFloat(sandWeight.value) || 0;
+            const currentLabCost = parseFloat(labourCostInput.value) || 0;
+
+            // 1. Concrete & Cement
+            const cQty = parseFloat(cementQty.value) || 0;
+            const cRate = parseFloat(cementRate.value) || 0;
+            const cementCost = cQty * currentVol * cRate;
+            cementCostDisplay.textContent = cementCost.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+            // 2. Steel
+            const sRate = parseFloat(steelRate.value) || 0;
+            const steelCost = currentSteelWeight * sRate;
+            steelCostDisplay.textContent = steelCost.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+            // 3. Sand
+            const sandR = parseFloat(sandRate.value) || 0;
+            const sandCost = currentSandWeight * sandR;
+            sandCostDisplay.textContent = sandCost.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+            // 4. Other Costs (Labour, Power, Transport)
+            const pwrCost = parseFloat(powerCostInput.value) || 0;
+            const transCost = parseFloat(transportCostInput.value) || 0;
+            const otherTotal = currentLabCost + pwrCost + transCost;
+            otherCostDisplay.textContent = otherTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+            // 5. Costs
+            const materialTotal = cementCost + steelCost + sandCost;
+
+            // 6. Final Cost with GST
+            const subtotal = materialTotal + otherTotal;
+            const profit = parseFloat(profitInput.value) || 0;
+            const gst = (subtotal + profit) * 0.18;
+            const grandFinalTotal = subtotal + profit + gst;
+            const costPerMeter = grandFinalTotal / 2.5;
+
+            subtotalDisplay.textContent = subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            gstDisplay.textContent = gst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            finalTotalDisplay.textContent = grandFinalTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            costPerMeterDisplay.textContent = costPerMeter.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+             // 7. Inquiry Meter Calculations
+             const inqVal = parseFloat(inquiryMeter.value);
+             if (inqVal > 0) {
+                 const pipesReq = inqVal / 2.5;
+                 const palletCap = currentDailyNos; 
+                 const daysReq = pipesReq / (palletCap || 1);
+
+                 pipesNeeded.textContent = Math.ceil(pipesReq).toLocaleString();
+                 currentPalletCap.textContent = palletCap;
+                 daysNeeded.textContent = Math.ceil(daysReq).toLocaleString();
+                 
+                 calcSteps.classList.remove('hidden');
+                 step1Txt.textContent = `${inqVal} ÷ 2.5 = ${Math.ceil(pipesReq)} Pipes`;
+                 step2Txt.textContent = `${Math.ceil(pipesReq)} ÷ ${palletCap} = ${Math.ceil(daysReq)} Days`;
+             } else {
+                 pipesNeeded.textContent = "0";
+                 currentPalletCap.textContent = currentDailyNos;
+                 daysNeeded.textContent = "0";
+                 calcSteps.classList.add('hidden');
+             }
+
+             // Update Print Template
+             document.getElementById('p-size').textContent = size;
+             document.getElementById('p-class-type').textContent = `${pClass} (${type})`;
+             document.getElementById('p-vol').textContent = `${currentVol.toFixed(3)} m³`;
+             document.getElementById('p-cement-qty').textContent = `${cementQty.value} Kg`;
+             document.getElementById('p-cement-rate').textContent = `₹ ${cementRate.value}`;
+             document.getElementById('p-cement-cost').textContent = `₹ ${cementCostDisplay.textContent}`;
+             document.getElementById('p-steel-weight').textContent = `${currentSteelWeight.toFixed(1)} Kg`;
+             document.getElementById('p-steel-rate').textContent = `₹ ${steelRate.value}`;
+             document.getElementById('p-steel-cost').textContent = `₹ ${steelCostDisplay.textContent}`;
+             document.getElementById('p-sand-weight').textContent = `${currentSandWeight.toFixed(0)} Kg`;
+             document.getElementById('p-sand-rate').textContent = `₹ ${sandRate.value}`;
+             document.getElementById('p-sand-cost').textContent = `₹ ${sandCostDisplay.textContent}`;
+             document.getElementById('p-labour-cost').textContent = `₹ ${currentLabCost}`;
+             document.getElementById('p-power-cost').textContent = `₹ ${powerCostInput.value || 0}`;
+             document.getElementById('p-transport-cost').textContent = `₹ ${transportCostInput.value || 0}`;
+             document.getElementById('p-other-total').textContent = `₹ ${otherCostDisplay.textContent}`;
+             document.getElementById('p-subtotal').textContent = `₹ ${subtotalDisplay.textContent}`;
+             document.getElementById('p-profit').textContent = `₹ ${profit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+             document.getElementById('p-gst').textContent = `₹ ${gstDisplay.textContent}`;
+             document.getElementById('p-grand-total').textContent = `₹ ${finalTotalDisplay.textContent}`;
+             document.getElementById('p-cost-per-meter').textContent = `₹ ${costPerMeterDisplay.textContent}`;
+
+             document.getElementById('p-inquiry-val').textContent = `${inquiryMeter.value || 0} Meters`;
+             document.getElementById('p-pallet-cap').textContent = currentDailyNos;
+             document.getElementById('p-pipes-needed').textContent = pipesNeeded.textContent;
+             document.getElementById('p-days-needed').textContent = daysNeeded.textContent + " Days";
+             document.getElementById('p-step1').textContent = step1Txt.textContent;
+             document.getElementById('p-step2').textContent = step2Txt.textContent;
+             document.getElementById('print-date').textContent = new Date().toLocaleString();
+         }
+
+        // Event Listeners
+        [
+            pipeSize, pipeClass, pipeType, 
+            concreteVal, cementQty, cementRate, 
+            steelWeight, steelRate, 
+            sandWeight, sandRate, 
+            labourCostInput, powerCostInput, transportCostInput,
+            profitInput, inquiryMeter
+         ].forEach(el => {
+            el.addEventListener('input', calculate);
+        });
+
+        window.onload = () => {
+            // Initial load update
+            const size = pipeSize.value;
+            const pClass = pipeClass.value;
+            const type = pipeType.value;
+            let data = pipeDataTable[type][size];
+            if (data) {
+                concreteVal.value = data.vol.toFixed(3);
+                steelWeight.value = data.steel[pClass].toFixed(1);
+                sandWeight.value = data.sandWeight.toFixed(0);
+                labourCostInput.value = data.labour || 0;
+                currentDailyNos = data.dailyNos || 0;
+            }
+            calculate();
+        };
+
+        // Share PDF functionality — native vector PDF with jsPDF + autoTable
+        async function handleShare() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const margin = 14;
+
+            // Header
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(16);
+            pdf.text('PIPECOST PRO', pageWidth / 2, 15, { align: 'center' });
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text('SIMPLIFIED CALCULATIONS. STRONGER DECISIONS.', pageWidth / 2, 20, { align: 'center' });
+            pdf.setFontSize(9);
+            pdf.text('Report Generated on: ' + new Date().toLocaleString(), pageWidth / 2, 25, { align: 'center' });
+            pdf.setDrawColor(51);
+            pdf.setLineWidth(0.5);
+            pdf.line(margin, 27, pageWidth - margin, 27);
+
+            // Helper to get print template cell text (replace ₹ with Rs. for PDF font compatibility)
+            const g = (id) => document.getElementById(id).textContent.replace(/₹/g, 'Rs.');
+
+            // Table 1: Production & Cost Analysis
+            const table1Body = [
+                ['Pipe Size', g('p-size')],
+                ['Pipe Class & Type', g('p-class-type')],
+                ['Estimated Volume', g('p-vol')],
+                ['Cement Qty', g('p-cement-qty')],
+                ['Cement Rate', g('p-cement-rate')],
+                ['Cement Cost', g('p-cement-cost')],
+                ['Steel Weight', g('p-steel-weight')],
+                ['Steel Rate', g('p-steel-rate')],
+                ['Steel Cost', g('p-steel-cost')],
+                ['Sand Weight', g('p-sand-weight')],
+                ['Sand Rate', g('p-sand-rate')],
+                ['Sand Cost', g('p-sand-cost')],
+                ['Labour Cost', g('p-labour-cost')],
+                ['Power Cost', g('p-power-cost')],
+                ['Transport Charges', g('p-transport-cost')],
+                ['Other Costs Total', g('p-other-total')],
+                ['Subtotal (All Costs)', g('p-subtotal')],
+                ['Profit', g('p-profit')],
+                ['GST (18%)', g('p-gst')],
+                ['GRAND FINAL TOTAL', g('p-grand-total')],
+                ['COST PER METER', g('p-cost-per-meter')]
+            ];
+
+            const highlightRows = [5, 8, 11]; // Cement/Steel/Sand cost
+            const totalRows = [15, 16, 18];   // Other total, Subtotal, GST
+            const grandRows = [19, 20];        // Grand Total, Cost/Meter
+
+            pdf.autoTable({
+                startY: 30,
+                head: [[ { content: 'PRODUCTION & COST ANALYSIS', colSpan: 2, styles: { halign: 'center', fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 10 } } ]],
+                body: table1Body,
+                margin: { left: margin, right: margin },
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 2, lineColor: [153, 153, 153], lineWidth: 0.3 },
+                columnStyles: {
+                    0: { cellWidth: (pageWidth - margin * 2) / 2, fontStyle: 'bold', fillColor: [242, 242, 242] },
+                    1: { cellWidth: (pageWidth - margin * 2) / 2 }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body') {
+                        const row = data.row.index;
+                        if (highlightRows.includes(row)) {
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.fillColor = data.column.index === 0 ? [248, 250, 252] : [248, 250, 252];
+                        }
+                        if (totalRows.includes(row)) {
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.fillColor = [241, 245, 249];
+                        }
+                        if (grandRows.includes(row)) {
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.fillColor = [226, 232, 240];
+                            data.cell.styles.fontSize = 10;
+                        }
+                    }
+                }
+            });
+
+            // Table 2: Inquiry Meter Analysis
+            const table2Body = [
+                ['Total Inquiry (Meters)', g('p-inquiry-val')],
+                ['Pallet Capacity', g('p-pallet-cap')],
+                ['No. of Pipes Required', g('p-pipes-needed')],
+                ['No. of Days Required', g('p-days-needed')]
+            ];
+
+            const calcText = 'Calculation: ' + g('p-step1') + ' | ' + g('p-step2');
+
+            pdf.autoTable({
+                startY: pdf.lastAutoTable.finalY + 8,
+                head: [[ { content: 'INQUIRY METER ANALYSIS', colSpan: 2, styles: { halign: 'center', fillColor: [226, 232, 240], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 10 } } ]],
+                body: table2Body,
+                margin: { left: margin, right: margin },
+                theme: 'grid',
+                styles: { fontSize: 9, cellPadding: 2, lineColor: [153, 153, 153], lineWidth: 0.3 },
+                columnStyles: {
+                    0: { cellWidth: (pageWidth - margin * 2) / 2, fontStyle: 'bold', fillColor: [242, 242, 242] },
+                    1: { cellWidth: (pageWidth - margin * 2) / 2 }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.row.index === 3) {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.fillColor = [226, 232, 240];
+                        data.cell.styles.fontSize = 10;
+                    }
+                }
+            });
+
+            // Calculation note
+            pdf.setFontSize(7);
+            pdf.setTextColor(102);
+            pdf.text(calcText, pageWidth / 2, pdf.lastAutoTable.finalY + 5, { align: 'center' });
+
+            // Share or download
+            const pdfBlob = pdf.output('blob');
+            const pdfFile = new File([pdfBlob], 'PipeCost-Report.pdf', { type: 'application/pdf' });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                try {
+                    await navigator.share({ title: 'PipeCost Pro Report', files: [pdfFile] });
+                } catch (err) {
+                    console.log('Share cancelled:', err);
+                }
+            } else {
+                pdf.save('PipeCost-Report.pdf');
+            }
+        }
+        shareBtn.addEventListener('click', handleShare);
+        shareBtnBottom.addEventListener('click', handleShare);
+    </script>
+</body>
+</html>
